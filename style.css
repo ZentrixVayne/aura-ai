@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURA Core Engine</title>
+    <script src="https://js.puter.com/v2/"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="aura-app">
+        <header class="aura-header">
+            <div class="status-indicator">
+                <span class="pulse-dot"></span>
+                <h1>AURA <span class="version-tag">v1.6.1</span></h1>
+            </div>
+            <div class="system-model">openai/gpt-5.5</div>
+        </header>
+
+        <main id="chat-container" class="chat-viewport"></main>
+
+        <footer class="aura-input-area">
+            <div class="input-wrapper">
+                <textarea id="user-input" rows="1" placeholder="Ask general questions or write PyCJ code (e.g., imagine x = 10)..." spellcheck="false"></textarea>
+                <button id="send-btn" type="button">➔</button>
+            </div>
+        </footer>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
