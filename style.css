@@ -44,7 +44,6 @@ body {
     border: 1px solid var(--border-line);
 }
 
-/* Sidebar Styling */
 .sidebar {
     width: 260px;
     background-color: #0d1017;
@@ -69,7 +68,6 @@ body {
     gap: 8px;
 }
 
-/* Custom Scrollbars */
 .chat-feed::-webkit-scrollbar,
 .history-list::-webkit-scrollbar {
     width: 6px;
@@ -153,7 +151,6 @@ body {
     padding-top: 12px;
 }
 
-/* Chat View Area */
 .chat-container {
     background-color: var(--bg-chat-box);
     flex: 1;
@@ -231,6 +228,19 @@ body {
     font-size: 0.95rem;
     line-height: 1.5;
     word-wrap: break-word;
+    position: relative;
+}
+
+/* Pseudo-element Terminal Cursor Implementation */
+.message.bot-bubble.streaming::after {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 14px;
+    background-color: var(--accent-blue);
+    margin-left: 4px;
+    vertical-align: middle;
+    animation: cursorBlink 0.7s step-end infinite;
 }
 
 .message code {
@@ -269,7 +279,6 @@ body {
     border-bottom-left-radius: 2px;
 }
 
-/* Gemini-Style Typing Indicator */
 .typing-loader {
     display: flex;
     align-items: center;
@@ -294,16 +303,6 @@ body {
 .typing-dot:nth-child(1) { animation-delay: 0s; }
 .typing-dot:nth-child(2) { animation-delay: 0.2s; }
 .typing-dot:nth-child(3) { animation-delay: 0.4s; }
-
-/* Real-time blink typewriter cursor */
-.streaming-terminal-cursor {
-    display: inline-block;
-    font-size: 0.95rem;
-    color: var(--accent-blue);
-    margin-left: 4px;
-    vertical-align: middle;
-    animation: cursorBlink 0.7s step-end infinite;
-}
 
 @keyframes geminiPulse {
     0%, 100% { transform: scale(1); opacity: 0.3; }
@@ -334,11 +333,10 @@ body {
     padding: 16px;
     display: flex;
     gap: 12px;
-    align-items: flex-end; /* Align to bottom as box expands vertically */
+    align-items: flex-end;
     border-top: 1px solid var(--border-line);
 }
 
-/* Transformed into Textarea supporting auto-expanding lines and shifts */
 .chat-input-bar textarea {
     flex: 1;
     background-color: var(--bg-app);
@@ -374,7 +372,6 @@ body {
 
 .chat-input-bar button:active { transform: scale(0.95); }
 
-/* Modal Access Panels */
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; width: 100vw; height: 100vh;
@@ -388,8 +385,6 @@ body {
 .modal-overlay.active .modal-box { transform: translateY(0); }
 .modal-header { background: var(--bg-header); padding: 15px 20px; color: var(--text-white); border-bottom: 1px solid var(--border-line); }
 .modal-body { padding: 20px; }
-.tutorial-text { font-size: 0.88rem; line-height: 1.5; margin-bottom: 20px; }
-.tutorial-text a { color: var(--accent-blue); text-decoration: none; font-weight: bold; }
 .input-group { display: flex; flex-direction: column; gap: 6px; }
 .input-group label { font-size: 0.8rem; color: var(--text-muted); }
 .input-group input { background: var(--bg-app); border: 1px solid var(--border-line); color: #fff; padding: 10px 14px; border-radius: 6px; outline: none; }
