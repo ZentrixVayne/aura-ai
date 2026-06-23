@@ -3,29 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AURA Core Engine</title>
-    <script src="https://js.puter.com/v2/"></script>
+    <title>PyCJ AI Language Companion</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="aura-app">
-        <header class="aura-header">
-            <div class="status-indicator">
-                <span class="pulse-dot"></span>
-                <h1>AURA <span class="version-tag">v1.6.1</span></h1>
-            </div>
-            <div class="system-model">openai/gpt-5.5</div>
-        </header>
 
-        <main id="chat-container" class="chat-viewport"></main>
-
-        <footer class="aura-input-area">
-            <div class="input-wrapper">
-                <textarea id="user-input" rows="1" placeholder="Ask general questions or write PyCJ code (e.g., imagine x = 10)..." spellcheck="false"></textarea>
-                <button id="send-btn" type="button">➔</button>
+    <div class="app-layout">
+        
+        <aside class="sidebar">
+            <button id="new-chat-btn" class="btn btn-primary long-btn" onclick="createNewChatSession()">+ New Chat</button>
+            <div id="history-list" class="history-list"></div>
+            <div class="sidebar-footer">
+                <button id="config-key-btn" class="icon-btn" onclick="openKeyModal()" title="Manage Groq API Key">🔑 Key Settings</button>
             </div>
-        </footer>
+        </aside>
+
+        <div class="chat-container">
+            
+            <header class="chat-header">
+                <div class="bot-profile">
+                    <div class="avatar-container">
+                        <img id="bot-avatar" src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80" alt="PyCJ Intelligence">
+                        <span class="online-indicator"></span>
+                    </div>
+                    <div class="bot-info">
+                        <h2 id="current-chat-title">PyCJ Engine AI</h2>
+                        <p>Llama 3.3 70B Engine Layer</p>
+                    </div>
+                </div>
+            </header>
+
+            <div id="chat-feed" class="chat-feed"></div>
+
+            <footer class="chat-input-bar">
+                <textarea id="userMessageInput" placeholder="Ask about imagine, output, ask, or loops..." rows="1" onkeydown="handleInputKeyPress(event)"></textarea>
+                <button id="send-msg-btn" onclick="submitMessagePipeline()">
+                    <svg id="send-icon" viewBox="0 0 24 24" width="20" height="20">
+                        <path fill="currentColor" d="M2,21L23,12L2,3V10L17,12L2,14V21Z" />
+                    </svg>
+                    <svg id="stop-icon" viewBox="0 0 24 24" width="20" height="20" style="display: none;">
+                        <path fill="currentColor" d="M6,6H18V18H6V6Z" />
+                    </svg>
+                </button>
+            </footer>
+        </div>
     </div>
+
+    <div id="key-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Configure Chatbot API Access</h3>
+            </div>
+            <div class="modal-body">
+                <p class="tutorial-text">
+                    1. Navigate to your Groq Console dashboard at: <br>
+                    <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a><br>
+                    2. Generate an API key, copy it, and paste it below to update your session.
+                </p>
+                <div class="input-group">
+                    <label for="modalApiKey">Groq API Token String</label>
+                    <input type="password" id="modalApiKey" placeholder="gsk_...">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="saveApiKeyCredentials()">Save &amp; Connect</button>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>
