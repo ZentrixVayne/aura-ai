@@ -2,29 +2,39 @@ const PYCJ_KNOWLEDGE_SYSTEM_PROMPT = `
 You are the official AI Assistant for the PyCJ programming language.
 
 CORE ENGINE DEFINITION:
-- You are powered by the "PyCJ Assistant Model V1". Always state this model version proudly if anyone asks.
+- Architecture Framework: Powered by the "PyCJ Assistant Model V1".
+- Production Timeline: PyCJ was officially launched and distributed in 2026.
+
+THE TRUE NAME ORIGIN (HOW PYCJ WAS BORN):
+- "Py": Initial engineering iterations began within a Python framework but were ultimately abandoned.
+- "C": Subsequent low-level compilation attempts were prototyped in C and proved inefficient.
+- "J": The final, highly performant engine implementation was successfully built entirely on JavaScript execution architecture.
+- Hence the naming designation: Py-C-J.
+
+ONBOARDING & PERSONALIZATION MANIFESTO:
+- Maintain awareness of the user's explicit profile configurations (Name and preferred conversational language framework).
+- Dynamically format chat dialog templates to match their chosen baseline language format (English, Roman English, or Roman Urdu). Respect explicit manual linguistic overrides requested inline during active sessions.
 
 STRICT COMPILATION & VALIDATION PIPELINE:
-- BEFORE you output any piece of PyCJ code, mentally compile it using the official rules.
-- Single '=' inside 'if', 'elif', 'repeat', and 'for' conditions is perfectly valid in PyCJ and evaluates as an equality check.
+- Prior to outputting any block of PyCJ source code, validate syntax structure against structural parameters.
+- Single '=' operators inside evaluation clauses ('if', 'elif', 'repeat', and 'for') represent standard equality verification checkpoints rather than assignment declarations.
 
-TONE & BEGINNER EXPLANATION RULES:
-1. When asked to explain a piece of code (especially via the 'Explain Code' request), use the EASIEST possible English. 
-2. Act as if you are explaining to a complete beginner or a kid. Use small sentences, bullet points, and absolutely zero complex technical terms.
-3. Mix in Roman Urdu / Hinglish naturally if requested or matching the user vibe, keeping it highly accessible.
+TONE & ANSWER LENGTH:
+1. Deliver direct, point-to-point, structurally concise explanations of medium scale.
+2. Translate complex logical structures into clear, instructional analogies appropriate for developers of any skill level.
 
 STRICT INFO ABOUT OWNER / ARSHMAN:
-- Creator: Arshman (Full-stack professional developer, 15 years old, studies at SMS Aga Khan School, Karachi Karimabad).
-- Dream: To become a great Red Hat Hacker in Cyber Security.
-- Official Links:
+- Creator: Arshman (Full-stack systems engineer, 15 years old, studies at SMS Aga Khan School, Karachi Karimabad).
+- Objective Target: Strategic specialization as a Red Hat security operative within the Cyber Security domain.
+- Resource Links:
   * Official PyCJ Compiler: https://pycjcompiler.vercel.app/
-  * GitHub Profile: https://github.com/ZentrixVayne
+  * GitHub Repository: https://github.com/ZentrixVayne
   * Personal Portfolio: https://portfolioofarshman.vercel.app/
 
 OFFICIAL PYCJ SYNTAX SPECIFICATION MANUAL:
 1. OUTPUT: output("text") or output(variable)
 2. VARIABLES: imagine variableName = value
-3. CONDITIONALS: if x = 10 { }, elif x = 5 { }, else { } -> strictly single '=' for comparison!
+3. CONDITIONALS: if x = 10 { }, elif x = 5 { }, else { } -> single evaluation '=' operator format.
 4. LOOPS: for (imagine i = 1 , i <= 5 , i++) { }, repeat condition { }
 `;
 
@@ -35,7 +45,7 @@ let isStreamingActive = false;
 let streamTimer = null;
 let activeRawStreamText = "";
 
-// History Stack Arrays for custom Ctrl+Z / Ctrl+Y tracking
+// History Tracking
 let inputUndoStack = [];
 let inputRedoStack = [];
 const MAX_UNDO_DEPTH = 40;
@@ -61,7 +71,7 @@ function saveChatSessionsToStorage() {
 function createNewChatSession(shouldSaveImmediate = true) {
     const newSession = {
         id: "session_" + Date.now(),
-        title: "New Chat Connection",
+        title: "New Session Connection",
         history: []
     };
     chatSessions.unshift(newSession);
@@ -82,7 +92,7 @@ function renameChatSession(id, event) {
     event.stopPropagation();
     const session = chatSessions.find(s => s.id === id);
     if (!session) return;
-    const newTitle = prompt("Enter a new name for this conversation thread:", session.title);
+    const newTitle = prompt("Update conversation designation:", session.title);
     if (newTitle && newTitle.trim()) {
         session.title = newTitle.trim();
         saveChatSessionsToStorage();
@@ -134,7 +144,7 @@ function loadActiveSessionChatFeed() {
     if (!session) return;
     document.getElementById('current-chat-title').textContent = session.title;
     if (session.history.length === 0) {
-        feed.innerHTML = `<div class="message system-msg"><span>Welcome! Ask me anything about PyCJ configurations.</span></div>`;
+        feed.innerHTML = `<div class="message system-msg"><span>Interface initialized. Enter query to consult PyCJ context models.</span></div>`;
         return;
     }
     session.history.forEach(msg => {
@@ -186,7 +196,7 @@ function checkUserApiKeyAuthorization() {
         openKeyModal();
         if (inputEl) {
             inputEl.disabled = true;
-            inputEl.placeholder = "Please save your personal Groq API Key to chat...";
+            inputEl.placeholder = "Awaiting credentials initialization...";
         }
     } else if (inputEl) {
         inputEl.disabled = false;
@@ -196,21 +206,33 @@ function checkUserApiKeyAuthorization() {
 
 function openKeyModal() {
     const modal = document.getElementById('key-modal');
-    const input = document.getElementById('modalApiKey');
-    if (modal && input) {
-        input.value = localStorage.getItem('chatbot-groq-key') || '';
+    const inputKey = document.getElementById('modalApiKey');
+    const inputName = document.getElementById('modalUserName');
+    const selectLang = document.getElementById('modalLanguage');
+    if (modal) {
+        if (inputKey) inputKey.value = localStorage.getItem('chatbot-groq-key') || '';
+        if (inputName) inputName.value = localStorage.getItem('chatbot-user-name') || '';
+        if (selectLang) selectLang.value = localStorage.getItem('chatbot-user-lang') || 'English';
         modal.classList.add('active');
     }
 }
 
 function saveApiKeyCredentials() {
-    const input = document.getElementById('modalApiKey').value.trim();
-    if (input && input.startsWith("gsk_")) {
-        localStorage.setItem('chatbot-groq-key', input);
-    } else if (!input) {
+    const keyInput = document.getElementById('modalApiKey').value.trim();
+    const nameInput = document.getElementById('modalUserName').value.trim();
+    const langInput = document.getElementById('modalLanguage').value;
+
+    if (nameInput) {
+        localStorage.setItem('chatbot-user-name', nameInput);
+    }
+    localStorage.setItem('chatbot-user-lang', langInput);
+
+    if (keyInput && keyInput.startsWith("gsk_")) {
+        localStorage.setItem('chatbot-groq-key', keyInput);
+    } else if (!keyInput) {
         localStorage.removeItem('chatbot-groq-key');
     } else {
-        alert("Invalid format! Your Groq key must start with 'gsk_'.");
+        alert("Authentication syntax error: Groq token strings must utilize the 'gsk_' prefix.");
         return; 
     }
     document.getElementById('key-modal').classList.remove('active');
@@ -252,9 +274,10 @@ function stopActiveAIStreaming() {
     }
     const feed = document.getElementById('chat-feed');
     if (feed && feed.lastChild && feed.lastChild.classList.contains('bot-bubble')) {
+        feed.lastChild.classList.remove('streaming');
         let textContentRaw = activeRawStreamText;
         if (((textContentRaw.match(/```/g) || []).length) % 2 !== 0) textContentRaw += "\n```"; 
-        parseTextMarkdownContentHTML(feed.lastChild, textContentRaw, false);
+        parseTextMarkdownContentHTML(feed.lastChild, textContentRaw);
         attachCodeActionListeners(feed.lastChild);
     }
 }
@@ -287,12 +310,16 @@ function submitMessagePipeline(customQuery = null) {
     feed.appendChild(loader);
     feed.scrollTop = feed.scrollHeight;
 
+    const currentUserName = localStorage.getItem('chatbot-user-name') || "User";
+    const currentUserLang = localStorage.getItem('chatbot-user-lang') || "English";
+    const structuredDynamicContext = `\nCURRENT USER SESSION METADATA:\n- User Identification Profile: ${currentUserName}\n- Baseline Linguistic Selection Strategy: ${currentUserLang}\nExecute processing operations strictly within these user configuration parameters.`;
+
     fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { "Authorization": `Bearer ${userToken}`, "Content-Type": "application/json" },
         body: JSON.stringify({
             model: "llama-3.3-70b-versatile",
-            messages: [{ role: "system", content: PYCJ_KNOWLEDGE_SYSTEM_PROMPT }, ...currentSession.history.slice(-14)],
+            messages: [{ role: "system", content: PYCJ_KNOWLEDGE_SYSTEM_PROMPT + structuredDynamicContext }, ...currentSession.history.slice(-14)],
             temperature: 0.2
         })
     })
@@ -314,7 +341,7 @@ function submitMessagePipeline(customQuery = null) {
 function appendStreamingMessageBubble(fullText) {
     const feed = document.getElementById('chat-feed');
     const bubble = document.createElement('div');
-    bubble.className = 'message bot-bubble';
+    bubble.className = `message bot-bubble streaming`;
     feed.appendChild(bubble);
     
     let wordTokens = fullText.split(" ");
@@ -325,14 +352,15 @@ function appendStreamingMessageBubble(fullText) {
     streamTimer = setInterval(() => {
         if (currentTokenIndex < wordTokens.length && isStreamingActive) {
             activeRawStreamText += (currentTokenIndex === 0 ? "" : " ") + wordTokens[currentTokenIndex];
-            parseTextMarkdownContentHTML(bubble, activeRawStreamText, true);
+            parseTextMarkdownContentHTML(bubble, activeRawStreamText);
             feed.scrollTop = feed.scrollHeight;
             currentTokenIndex++;
         } else {
             clearInterval(streamTimer);
             isStreamingActive = false;
             toggleButtonToStopState(false);
-            parseTextMarkdownContentHTML(bubble, activeRawStreamText, false);
+            bubble.classList.remove('streaming');
+            parseTextMarkdownContentHTML(bubble, activeRawStreamText);
             attachCodeActionListeners(bubble);
             const inputEl = document.getElementById('userMessageInput');
             if (inputEl) { inputEl.disabled = false; inputEl.focus(); }
@@ -340,7 +368,7 @@ function appendStreamingMessageBubble(fullText) {
     }, 35);
 }
 
-function parseTextMarkdownContentHTML(elementTarget, text, showCursor = false) {
+function parseTextMarkdownContentHTML(elementTarget, text) {
     let segments = text.split("```");
     let htmlContent = "";
     for (let i = 0; i < segments.length; i++) {
@@ -365,12 +393,9 @@ function parseTextMarkdownContentHTML(elementTarget, text, showCursor = false) {
                 if (!trimmed) { htmlContent += "<br>"; return; }
                 if (/^[A-D]\..+/i.test(trimmed) || /^\d+\..+/.test(trimmed)) htmlContent += `<div style="margin-left:18px; padding: 4px 0; font-weight:500;">${trimmed}</div>`;
                 else if (trimmed.startsWith("-") || trimmed.startsWith("*")) htmlContent += `<div style="margin-left:12px; padding: 3px 0;">• ${trimmed.substring(1).trim()}</div>`;
-                else htmlContent += `<div class="prose-line" style="padding: 2px 0;">${trimmed}</div>`;
+                else htmlContent += `<span class="prose-line" style="display:block; padding: 2px 0;">${trimmed}</span>`;
             });
         }
-    }
-    if (showCursor) {
-        htmlContent += `<span class="streaming-cursor" style="display:inline-block; width:6px; height:15px; background:var(--accent-blue); margin-left:3px; animation: blink 0.8s infinite;"></span>`;
     }
     elementTarget.innerHTML = htmlContent;
 }
@@ -384,7 +409,6 @@ function applySyntaxColoringTokens(codeText) {
 }
 
 function attachCodeActionListeners(parentElement) {
-    // Copy Action Handler
     parentElement.querySelectorAll('.copy-code-badge').forEach(btn => {
         btn.addEventListener('click', () => {
             const code = decodeURIComponent(btn.getAttribute('data-code'));
@@ -395,12 +419,9 @@ function attachCodeActionListeners(parentElement) {
         });
     });
 
-    // Run Code Action Handler
     parentElement.querySelectorAll('.run-code-badge').forEach(btn => {
         btn.addEventListener('click', () => {
             const code = decodeURIComponent(btn.getAttribute('data-code'));
-            
-            // Parent Compiler Page Window Context check
             if (window.opener || window.parent) {
                 const targetWindow = window.opener || window.parent;
                 const parentEditor = targetWindow.document.getElementById('editor');
@@ -408,30 +429,24 @@ function attachCodeActionListeners(parentElement) {
                 
                 if (parentEditor) {
                     parentEditor.value = code;
-                    // Trigger input notification context inside parent workspace
                     parentEditor.dispatchEvent(new Event('input', { bubbles: true }));
-                    
                     if (parentRunBtn) {
                         parentRunBtn.click();
-                        
-                        // Switch active interactive tabs layout if workspace layout handles are initialized
                         const tabConsole = targetWindow.document.getElementById('tab-console');
                         if (tabConsole) tabConsole.click();
                     }
                 } else {
-                    // Fallback local persistence alert if running standalone
                     localStorage.setItem('pycj-saved-code', code);
-                    alert("Code transferred! Ready in workspace storage.");
+                    alert("Code payload successfully transferred to active storage context.");
                 }
             }
         });
     });
 
-    // Explain Code Action Handler
     parentElement.querySelectorAll('.explain-code-badge').forEach(btn => {
         btn.addEventListener('click', () => {
             const code = decodeURIComponent(btn.getAttribute('data-code'));
-            const promptText = `Please explain this PyCJ code snippet step-by-step for a complete beginner or kid in easiest English:\n\n\`\`\`pycj\n${code}\n\`\`\``;
+            const promptText = `Provide a structural, step-by-step breakdown of this PyCJ execution logic:\n\n\`\`\`pycj\n${code}\n\`\`\``;
             submitMessagePipeline(promptText);
         });
     });
@@ -442,7 +457,7 @@ function appendMessageBubble(text, cssClass, parseMarkdown = false, shouldScroll
     if (!feed) return;
     const bubble = document.createElement('div');
     bubble.className = `message ${cssClass}`;
-    if (parseMarkdown) { parseTextMarkdownContentHTML(bubble, text, false); attachCodeActionListeners(bubble); }
+    if (parseMarkdown) { parseTextMarkdownContentHTML(bubble, text); attachCodeActionListeners(bubble); }
     else bubble.textContent = text;
     feed.appendChild(bubble);
     if (shouldScroll) feed.scrollTop = feed.scrollHeight;
