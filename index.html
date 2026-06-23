@@ -14,7 +14,7 @@
             <button id="new-chat-btn" class="btn btn-primary long-btn" onclick="createNewChatSession()">+ New Chat</button>
             <div id="history-list" class="history-list"></div>
             <div class="sidebar-footer">
-                <button id="config-key-btn" class="icon-btn" onclick="openKeyModal()" title="Manage Groq API Key">🔑 Key Settings</button>
+                <button id="config-key-btn" class="icon-btn" onclick="openKeyModal()" title="Manage Settings">⚙️ App Settings</button>
             </div>
         </aside>
 
@@ -28,7 +28,7 @@
                     </div>
                     <div class="bot-info">
                         <h2 id="current-chat-title">PyCJ Engine AI</h2>
-                        <p>Llama 3.3 70B Engine Layer</p>
+                        <p>Llama 3.3 70B Engine Layer (Released 2026)</p>
                     </div>
                 </div>
             </header>
@@ -52,21 +52,28 @@
     <div id="key-modal" class="modal-overlay">
         <div class="modal-box">
             <div class="modal-header">
-                <h3>Configure Chatbot API Access</h3>
+                <h3>PyCJ Companion Configuration</h3>
             </div>
             <div class="modal-body">
-                <p class="tutorial-text">
-                    1. Navigate to your Groq Console dashboard at: <br>
-                    <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a><br>
-                    2. Generate an API key, copy it, and paste it below to update your session.
-                </p>
+                <div class="input-group" style="margin-bottom: 14px;">
+                    <label for="modalUserName">User Name</label>
+                    <input type="text" id="modalUserName" placeholder="Enter your name...">
+                </div>
+                <div class="input-group" style="margin-bottom: 14px;">
+                    <label for="modalLanguage">Preferred Communication Language</label>
+                    <select id="modalLanguage" style="background: var(--bg-app); border: 1px solid var(--border-line); color: #fff; padding: 10px 14px; border-radius: 6px; outline: none; width: 100%;">
+                        <option value="English">English</option>
+                        <option value="Roman English">Roman English</option>
+                        <option value="Roman Urdu">Roman Urdu</option>
+                    </select>
+                </div>
                 <div class="input-group">
                     <label for="modalApiKey">Groq API Token String</label>
                     <input type="password" id="modalApiKey" placeholder="gsk_...">
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" onclick="saveApiKeyCredentials()">Save &amp; Connect</button>
+                <button class="btn btn-primary" onclick="saveApiKeyCredentials()">Save Changes</button>
             </div>
         </div>
     </div>
