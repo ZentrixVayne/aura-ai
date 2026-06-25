@@ -14,58 +14,53 @@ STRICT PYCJ V1.1 SYNTAX:
 - arrays: imagine arr = [], arr.add(10), arr.remove(30), arr.max(), arr.min(), arr[0]
 - functions: function even_odd(n) { return p"{n} Is Even" }
 - structures: structure student() { imagine name = "Arshman" }, imagine s = student(), output(s.name)
-TONE: Concise, fix syntax errors if user provides broken code.
+
+OUTPUT FORMAT RULE: 
+Be straight-to-the-point and clear. Do not provide overly long explanations, preambles, or fluffy intros/outros. Aim for a medium-sized answer that is approximately half the length of a standard response. Deliver the facts and code snippets instantly without filler text.
 `;
 
 const OWNER_NAME = "Arshman Anil";
 const OWNER_PASS = "admin456";
 
-// ==========================================
-// REALISTIC MODEL ARCHITECTURE
-// ==========================================
 const MODEL_ARCHITECTURE = [
     { 
         id: 'x7k2', name: 'X7K2', tag: 'DETAILED', delay: 0, 
-        persona: `INSTRUCTION: You are a highly analytical model. You provide comprehensive, multi-paragraph explanations. You break down concepts into structured parts. You use formatting like bolding and bullet points. You explain the 'why' behind the syntax, not just the 'how'. IMPORTANT: NEVER proactively say your model name unless explicitly asked. Just answer the question deeply.` 
+        persona: `INSTRUCTION: You are an analytical model. Answer concepts efficiently and straight to the point. Give clear formatting but maintain medium-length limits.` 
     },
     { 
         id: 'v9m4', name: 'V9M4', tag: 'STRUCTURED', delay: 0, 
-        persona: `INSTRUCTION: You are a structured, logical model. You format responses using clear headers, numbered lists, and code blocks. You are precise and methodical. You prefer step-by-step breakdowns. IMPORTANT: NEVER proactively say your model name unless explicitly asked.` 
+        persona: `INSTRUCTION: You are a structured model. Use clean, direct step breakdowns, code blocks, and lists. Keep text short and to the point.` 
     },
     { 
         id: 'p4t8', name: 'P4T8', tag: 'BALANCED', delay: 0, 
-        persona: `INSTRUCTION: You are a balanced, helpful model. You give clear, medium-length explanations. You provide code examples when necessary. You are friendly but professional. IMPORTANT: NEVER proactively say your model name unless explicitly asked.` 
+        persona: `INSTRUCTION: You are a balanced model. Give concise answers and quick code solutions without unnecessary paragraphs.` 
     },
     { 
         id: 'k2j6', name: 'K2J6', tag: 'DIRECT', delay: 0, 
-        persona: `INSTRUCTION: You are a direct, no-nonsense model. You get straight to the point. You avoid fluff and unnecessary words. You give the exact answer or code required without extra commentary. IMPORTANT: NEVER proactively say your model name unless explicitly asked.` 
+        persona: `INSTRUCTION: You are a direct model. Avoid any commentary or fluff. Deliver the response efficiently.` 
     },
     { 
         id: 'r8n1', name: 'R8N1', tag: 'INSTANT', delay: 0, 
-        persona: `INSTRUCTION: You are an instant, rapid-fire model. You give the shortest possible correct answer. 1-2 sentences max. You strip away all pleasantries. IMPORTANT: NEVER proactively say your model name unless explicitly asked.` 
+        persona: `INSTRUCTION: You are an rapid model. Give short answers instantly.` 
     },
     { 
         id: 'z3b5', name: 'Z3B5', tag: 'MICRO', delay: 0, 
-        persona: `INSTRUCTION: You are a micro model. You answer in the absolute fewest words possible. Code snippets preferred over text explanations. IMPORTANT: NEVER proactively say your model name unless explicitly asked.` 
+        persona: `INSTRUCTION: You answer in the absolute minimum words possible.` 
     },
     { 
         id: 'm6f9', name: 'M6F9', tag: 'RAW', delay: 0, 
-        persona: `INSTRUCTION: You are a raw, unfiltered model. You output raw data, code, or extremely blunt text. Zero formatting, zero pleasantries. Just the facts or code. IMPORTANT: NEVER proactively say your model name unless explicitly asked.` 
+        persona: `INSTRUCTION: Output raw code or text directly with no decorative conversational text.` 
     }
 ];
 
 let activeModelId = 'x7k2';
-
-// ==========================================
-// APP STATE
-// ==========================================
 let chatSessions = [];
 let activeSessionId = null;
 let isStreamingActive = false;
 let streamTimer = null;
 let activeRawStreamText = "";
 let isOwner = false;
-let userIsScrollingUp = false; // Tracks if user deliberately scrolled up
+let userIsScrollingUp = false; 
 let DOM = {};
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -73,18 +68,34 @@ document.addEventListener('DOMContentLoaded', () => {
     DOM.chatWorkspace = document.getElementById('chat-workspace');
     DOM.userInput = document.getElementById('userMessageInput');
     DOM.sendBtn = document.getElementById('send-button');
-    DOM.stopBtn = document.querySelector('.stop-generate-text');
     DOM.scrollFab = document.getElementById('scroll-fab');
     DOM.toast = document.getElementById('toast-notification');
     
+    setButtonState(false);
     initModelDropdown();
     loadTheme();
     checkOnboardingStatus();
 });
 
-// ==========================================
-// MODEL DROPDOWN
-// ==========================================
+function setButtonState(isStreaming) {
+    if (!DOM.sendBtn) return;
+    if (isStreaming) {
+        DOM.sendBtn.classList.add('cancel-mode');
+        DOM.sendBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>`;
+    } else {
+        DOM.sendBtn.classList.remove('cancel-mode');
+        DOM.sendBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+    }
+}
+
+function handleButtonClick() {
+    if (isStreamingActive) {
+        stopActiveAIStreaming();
+    } else {
+        submitMessagePipeline();
+    }
+}
+
 function initModelDropdown() {
     const dropdown = document.getElementById('model-dropdown');
     if(!dropdown) return;
@@ -146,9 +157,6 @@ function selectModel(modelId) {
     toggleModelDropdown();
 }
 
-// ==========================================
-// ONBOARDING & AUTH
-// ==========================================
 function checkOnboardingStatus() {
     const hasName = localStorage.getItem('pycj_user_name');
     const hasKey = localStorage.getItem('pycj_api_key');
@@ -165,14 +173,19 @@ function completeOnboarding() {
     const apiKey = document.getElementById('onboard-api').value.trim();
     if (!name) { alert("Please enter your name."); return; }
     if (!apiKey || !apiKey.startsWith("gsk_")) { alert("Please enter a valid Groq API Key."); return; }
-    if (name === OWNER_NAME && pass !== OWNER_PASS) { alert("Incorrect password."); return; }
-    if (pass === OWNER_PASS && name !== OWNER_NAME) { alert("Invalid username."); return; }
-    if (name !== OWNER_NAME && pass !== "" && pass !== OWNER_PASS) { alert("Invalid credentials."); return; }
+    
     localStorage.setItem('pycj_user_name', name);
     localStorage.setItem('pycj_language', 'English');
     localStorage.setItem('pycj_api_key', apiKey);
-    if (name === OWNER_NAME && pass === OWNER_PASS) { isOwner = true; localStorage.setItem('pycj_is_owner', 'true'); }
-    else { isOwner = false; localStorage.removeItem('pycj_is_owner'); }
+    
+    // Check if matching Arshman Anil AND correct password to define owner status
+    if (name === OWNER_NAME && pass === OWNER_PASS) { 
+        isOwner = true; 
+        localStorage.setItem('pycj_is_owner', 'true'); 
+    } else { 
+        isOwner = false; 
+        localStorage.removeItem('pycj_is_owner'); 
+    }
     document.getElementById('onboarding-modal').classList.remove('active');
     initApp();
 }
@@ -180,9 +193,6 @@ function completeOnboarding() {
 function verifyOwnerStatus() { isOwner = (localStorage.getItem('pycj_user_name') === OWNER_NAME && localStorage.getItem('pycj_is_owner') === 'true'); }
 function initApp() { loadChatSessionsFromStorage(); checkUserApiKeyAuthorization(); setupScrollListener(); setupInputHistory(); }
 
-// ==========================================
-// THEME & UI
-// ==========================================
 function loadTheme() { document.documentElement.setAttribute('data-theme', localStorage.getItem('pycj_theme') || 'dark'); }
 function toggleTheme() { const n = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', n); localStorage.setItem('pycj_theme', n); }
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebar-overlay').classList.toggle('active'); }
@@ -190,17 +200,14 @@ function toggleSidebar() { document.getElementById('sidebar').classList.toggle('
 function setupScrollListener() {
     if(!DOM.chatWorkspace || !DOM.scrollFab) return;
     DOM.chatWorkspace.addEventListener('scroll', () => {
-        // Detect if user is near the bottom (with 40px threshold cushion)
         const nearBottom = DOM.chatWorkspace.scrollHeight - DOM.chatWorkspace.scrollTop - DOM.chatWorkspace.clientHeight < 40;
-        
         if (nearBottom) {
             DOM.scrollFab.classList.remove('visible');
-            userIsScrollingUp = false; // Reset toggle if they manually snapped back to the bottom
+            userIsScrollingUp = false; 
         } else {
             if (isStreamingActive || DOM.chatWorkspace.querySelectorAll('.msg-wrapper').length > 2) {
                 DOM.scrollFab.classList.add('visible');
             }
-            // If AI is typing and distance to bottom increases, user is trying to scroll up
             if (isStreamingActive) {
                 userIsScrollingUp = true;
             }
@@ -217,9 +224,6 @@ function scrollToBottom() {
 function showToast(msg) { if(!DOM.toast) return; DOM.toast.textContent = msg; DOM.toast.classList.add('show'); setTimeout(() => DOM.toast.classList.remove('show'), 2000); }
 function getTimeGreeting() { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; }
 
-// ==========================================
-// DYNAMIC SUGGESTIONS
-// ==========================================
 const SUGGESTION_POOL = [
     { icon: "💡", text: "Explain standard imagine variables assignment" },
     { icon: "🔄", text: "Write a loop using repeat framework" },
@@ -228,19 +232,10 @@ const SUGGESTION_POOL = [
     { icon: "📦", text: "How do I create and use arrays in PyCJ?" },
     { icon: "⚙️", text: "Show me how to write a custom function" },
     { icon: "🏗️", text: "Explain structure (OOP) in PyCJ V1.1" },
-    { icon: "⌨️", text: "How does the 'ask' input system work?" },
-    { icon: "🔢", text: "Difference between / and // division" },
-    { icon: "🔁", text: "Write a for loop skipping initialization" },
-    { icon: "✨", text: "How do f-strings work with output(p'...')?" },
-    { icon: "📊", text: "How to get arr.max() and arr.min()?" },
-    { icon: "🧩", text: "Write a program to check even or odd" },
-    { icon: "📝", text: "How to use # and /* */ for comments?" },
-    { icon: "🚀", text: "Create a structure to hold student marks" },
-    { icon: "🎯", text: "Write a repeat loop to take 5 inputs" }
+    { icon: "⌨️", text: "How does the 'ask' input system work?" }
 ];
 
 function getRandomSuggestions(count = 4) { const s = [...SUGGESTION_POOL].sort(() => 0.5 - Math.random()); return s.slice(0, count); }
-
 function renderSuggestionGrid() { return getRandomSuggestions(4).map(s => `<div class="suggestion-card" onclick="executeSuggestionPill('${s.text.replace(/'/g, "\\'")}')"><div class="suggestion-text">${s.icon} ${s.text}</div></div>`).join(''); }
 function refreshDashboardSuggestions() { const g = document.querySelector('.suggestion-grid'); if(g) g.innerHTML = renderSuggestionGrid(); }
 
@@ -256,9 +251,6 @@ function appendFollowUpBubble(questions) {
     DOM.chatFeed.appendChild(w); scrollToBottom();
 }
 
-// ==========================================
-// SESSIONS
-// ==========================================
 function loadChatSessionsFromStorage() { const s = localStorage.getItem('pycj-chat-sessions'); if (s) chatSessions = JSON.parse(s); createNewChatSession(false); }
 function saveChatSessionsToStorage() { localStorage.setItem('pycj-chat-sessions', JSON.stringify(chatSessions)); }
 
@@ -282,20 +274,22 @@ function deleteSession(id, event) {
 }
 
 function deleteAllChatSessions() { if (!confirm('Delete all?')) return; if (isStreamingActive) stopActiveAIStreaming(); chatSessions = []; saveChatSessionsToStorage(); createNewChatSession(); }
-function filterChats(q) { document.querySelectorAll('.history-item').forEach(i => { i.style.display = i.querySelector('.item-title').textContent.toLowerCase().includes(q.toLowerCase()) ? 'flex' : 'none'; }); }
-function executeDirectSessionRename(o, t) { o.title = t; saveChatSessionsToStorage(); renderSidebarHistoryList(); }
 
 function renderSidebarHistoryList() {
-    const c = document.getElementById('history-list'); if (!c) return; c.innerHTML = "";
-    chatSessions.forEach(s => {
-        const i = document.createElement('div'); i.className = `history-item ${s.id === activeSessionId ? 'active' : ''}`; i.onclick = () => selectChatSession(s.id);
-        i.innerHTML = `<span class="item-title">${escapeHTML(s.title)}</span><button class="item-delete" onclick="deleteSession('${s.id}', event)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>`;
-        c.appendChild(i);
+    const container = document.getElementById('history-list'); if(!container) return;
+    container.innerHTML = chatSessions.map(s => `<div class="history-item ${s.id === activeSessionId ? 'active' : ''}" onclick="selectChatSession('${s.id}')"><span class="item-title">${escapeHTML(s.title)}</span><button class="item-delete" onclick="deleteSession('${s.id}', event)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>`).join('');
+}
+
+function filterChats(val) {
+    const q = val.toLowerCase().trim();
+    document.querySelectorAll('.history-item').forEach((el, index) => {
+        const title = chatSessions[index]?.title.toLowerCase() || '';
+        el.style.display = title.includes(q) ? 'flex' : 'none';
     });
 }
 
 function loadActiveSessionChatFeed() {
-    if(!DOM.chatFeed) return; DOM.chatFeed.innerHTML = "";
+    if(!DOM.chatFeed) return;
     const s = chatSessions.find(s => s.id === activeSessionId); if (!s) return;
     if (s.history.length === 0) {
         const name = localStorage.getItem('pycj_user_name') || '';
@@ -303,48 +297,288 @@ function loadActiveSessionChatFeed() {
         DOM.chatFeed.innerHTML = `<div class="dashboard-container"><h1 class="dashboard-title">${greeting}</h1><p class="dashboard-subtitle">How can I help you with PyCJ today?</p><div class="suggestion-grid">${renderSuggestionGrid()}</div><button class="refresh-suggestions-btn" onclick="refreshDashboardSuggestions()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Show different suggestions</button></div>`;
         return;
     }
-    s.history.forEach(m => { if (m.role === "user") appendMessageBubble(m.content, 'user-type', false, false); else if (m.role === "assistant") appendMessageBubble(m.content, 'bot-type', true, false); });
+    DOM.chatFeed.innerHTML = '';
+    s.history.forEach(m => {
+        if (m.role === "user") appendMessageBubble(m.content, 'user-type', false, false);
+        else if (m.role === "assistant") appendMessageBubble(m.content, 'bot-type', true, false);
+    });
     setTimeout(scrollToBottom, 50);
 }
 
-// ==========================================
-// INPUT & SETTINGS
-// ==========================================
-function setupInputHistory() { if(!DOM.userInput) return; DOM.userInput.addEventListener('input', () => { DOM.userInput.style.height = 'auto'; DOM.userInput.style.height = Math.min(DOM.userInput.scrollHeight, 150) + 'px'; }); }
+function setupInputHistory() {
+    if(!DOM.userInput) return;
+    DOM.userInput.addEventListener('input', () => {
+        DOM.userInput.style.height = 'auto';
+        DOM.userInput.style.height = Math.min(DOM.userInput.scrollHeight, 150) + 'px';
+    });
+}
 
 function checkUserApiKeyAuthorization() {
     const k = localStorage.getItem('pycj_api_key');
-    if (!k) { setTimeout(() => openKeyModal(), 500); if(DOM.userInput) { DOM.userInput.disabled = true; DOM.userInput.placeholder = "Awaiting credentials..."; } }
-    else if(DOM.userInput) { DOM.userInput.disabled = false; DOM.userInput.focus(); }
+    if (!k) {
+        setTimeout(() => openKeyModal(), 500);
+        if(DOM.userInput) {
+            DOM.userInput.disabled = true;
+            DOM.userInput.placeholder = "Awaiting credentials...";
+        }
+    } else {
+        if(DOM.userInput) {
+            DOM.userInput.disabled = false;
+            DOM.userInput.placeholder = "Message PyCJ AI...";
+        }
+    }
 }
 
-function openKeyModal() { document.getElementById('modalApiKey').value = localStorage.getItem('pycj_api_key') || ''; document.getElementById('modalUserName').value = localStorage.getItem('pycj_user_name') || ''; document.getElementById('modalOwnerPass').value = isOwner ? OWNER_PASS : ''; document.getElementById('key-modal').classList.add('active'); }
-function closeKeyModal() { document.getElementById('key-modal').classList.remove('active'); }
+function openKeyModal() {
+    const modal = document.getElementById('key-modal');
+    if(modal) {
+        modal.classList.add('active');
+        document.getElementById('modalUserName').value = localStorage.getItem('pycj_user_name') || '';
+        document.getElementById('modalApiKey').value = localStorage.getItem('pycj_api_key') || '';
+        document.getElementById('modalOwnerPass').value = isOwner ? OWNER_PASS : '';
+    }
+}
+
+function closeKeyModal() { const m = document.getElementById('key-modal'); if(m) m.classList.remove('active'); }
 
 function saveApiKeyCredentials() {
-    const k = document.getElementById('modalApiKey').value.trim(), n = document.getElementById('modalUserName').value.trim(), p = document.getElementById('modalOwnerPass').value.trim();
-    if (n === OWNER_NAME && p !== "" && p !== OWNER_PASS) { alert("Incorrect password."); return; }
-    if (p === OWNER_PASS && n !== OWNER_NAME) { alert("Invalid username."); return; }
-    if (n !== OWNER_NAME && p !== "" && p !== OWNER_PASS) { alert("Invalid credentials."); return; }
-    if (n) localStorage.setItem('pycj_user_name', n);
-    localStorage.setItem('pycj_language', 'English');
-    if (k && k.startsWith("gsk_")) localStorage.setItem('pycj_api_key', k); else if (!k) localStorage.removeItem('pycj_api_key'); else { alert("API key must start with 'gsk_'"); return; }
-    if (n === OWNER_NAME && p === OWNER_PASS) { isOwner = true; localStorage.setItem('pycj_is_owner', 'true'); } else { isOwner = false; localStorage.removeItem('pycj_is_owner'); }
-    closeKeyModal(); if(DOM.userInput && localStorage.getItem('pycj_api_key')) { DOM.userInput.disabled = false; DOM.userInput.focus(); } loadActiveSessionChatFeed(); showToast("Settings saved");
+    const name = document.getElementById('modalUserName').value.trim();
+    const apiKey = document.getElementById('modalApiKey').value.trim();
+    const pass = document.getElementById('modalOwnerPass').value.trim();
+    
+    if(!name) { alert("Name required."); return; }
+    if(!apiKey || !apiKey.startsWith("gsk_")) { alert("Enter a valid Groq API Key."); return; }
+    
+    localStorage.setItem('pycj_user_name', name);
+    localStorage.setItem('pycj_api_key', apiKey);
+    
+    if(name === OWNER_NAME && pass === OWNER_PASS) {
+        isOwner = true; 
+        localStorage.setItem('pycj_is_owner', 'true');
+    } else {
+        isOwner = false; 
+        localStorage.removeItem('pycj_is_owner');
+    }
+    
+    closeKeyModal();
+    loadActiveSessionChatFeed();
+    checkUserApiKeyAuthorization();
+    showToast("Settings updated successfully");
 }
 
-function handleInputKeyPress(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (DOM.userInput && !DOM.userInput.disabled) submitMessagePipeline(); } }
-function executeSuggestionPill(t) { if(DOM.userInput) { DOM.userInput.value = t; submitMessagePipeline(); } }
+function handleInputKeyPress(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submitMessagePipeline();
+    }
+}
 
-// ==========================================
-// AI PIPELINE
-// ==========================================
+function executeSuggestionPill(text) {
+    if(isStreamingActive) return;
+    if(DOM.userInput) DOM.userInput.value = text;
+    submitMessagePipeline();
+}
+
+function submitMessagePipeline(overrideMessages = null) {
+    if (isStreamingActive) return;
+    const userToken = localStorage.getItem('pycj_api_key');
+    if (!userToken) { openKeyModal(); return; }
+
+    let query = "";
+    const currentSession = chatSessions.find(s => s.id === activeSessionId);
+    if (!currentSession) return;
+
+    if (overrideMessages) {
+        query = overrideMessages[overrideMessages.length - 1].content;
+    } else {
+        if (!DOM.userInput) return;
+        query = DOM.userInput.value.trim();
+        if (!query) return;
+
+        DOM.chatFeed.querySelector('.follow-up-container')?.remove();
+        if (currentSession.history.length === 0) {
+            DOM.chatFeed.innerHTML = '';
+        }
+
+        appendMessageBubble(query, 'user-type', false, true);
+        currentSession.history.push({ role: "user", content: query });
+        
+        DOM.userInput.value = '';
+        DOM.userInput.style.height = 'auto';
+    }
+
+    if (currentSession.history.filter(m => m.role === "user").length === 1 && !overrideMessages) {
+        generateSmartChatTitle(query, currentSession);
+    }
+
+    isStreamingActive = true;
+    setButtonState(true);
+
+    appendMessageBubble("", 'bot-type thinking-bubble', true, true);
+    
+    const currentModel = MODEL_ARCHITECTURE.find(m => m.id === activeModelId) || MODEL_ARCHITECTURE[0];
+    const userName = localStorage.getItem('pycj_user_name') || 'User';
+    let ownerContext = "";
+    if (isOwner) {
+        ownerContext = `\nUSER METADATA:\n- Name: ${OWNER_NAME}\n- Status: System Creator / Owner\n- Authorization Level: Root Admin\n- Language Preference: English`;
+    } else {
+        ownerContext = `\nUSER METADATA:\n- Name: ${userName}\n- Lang: English`;
+    }
+    const finalSystemPrompt = PYCJ_KNOWLEDGE_SYSTEM_PROMPT + ownerContext + "\n\n" + currentModel.persona;
+
+    fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${userToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [{ role: "system", content: finalSystemPrompt }, ...currentSession.history.slice(-14)],
+            temperature: 0.3,
+            max_tokens: 1024
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (!isStreamingActive) return;
+
+        if(data.error) throw new Error(data.error.message);
+        const text = data.choices[0].message.content;
+        currentSession.history.push({ role: "assistant", content: text });
+        saveChatSessionsToStorage();
+        setTimeout(() => {
+            appendStreamingMessageBubble(text, () => generateFollowUpQuestions(query));
+        }, 50);
+    })
+    .catch(err => {
+        if (!isStreamingActive) return;
+        stopActiveAIStreaming();
+        appendMessageBubble(`Error: ${err.message}`, 'bot-type', true, true);
+    });
+}
+
+function appendStreamingMessageBubble(fullText, onDoneCallback) {
+    const thinkingEl = DOM.chatFeed.querySelector('.thinking-bubble');
+    if (thinkingEl) thinkingEl.remove();
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'msg-wrapper bot-type';
+    wrapper.innerHTML = `<div class="msg-avatar">AI</div><div class="msg-content"><div class="msg-bubble"></div><div class="msg-actions-bot" style="display:flex; gap:4px; margin-top:8px; opacity:0; transition: opacity 0.2s;"></div></div>`;
+    DOM.chatFeed.appendChild(wrapper);
+
+    const bubble = wrapper.querySelector('.msg-bubble');
+    const actionsContainer = wrapper.querySelector('.msg-actions-bot');
+    const chars = Array.from(fullText);
+    let i = 0;
+    activeRawStreamText = "";
+    isStreamingActive = true;
+    userIsScrollingUp = false; 
+
+    setButtonState(true);
+
+    streamTimer = setInterval(() => {
+        if (i < chars.length && isStreamingActive) {
+            activeRawStreamText += chars[i];
+            parseTextMarkdownContentHTML(bubble, activeRawStreamText, true);
+            i++;
+            if (!userIsScrollingUp) scrollToBottom();
+        } else {
+            clearInterval(streamTimer);
+            if (isStreamingActive) {
+                isStreamingActive = false;
+                setButtonState(false);
+                parseTextMarkdownContentHTML(bubble, activeRawStreamText, false);
+                attachCodeActionListeners(bubble);
+                
+                actionsContainer.innerHTML = `
+                    <button class="action-icon-btn" onclick="copyFullResponse(this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></button>
+                    <button class="action-icon-btn" onclick="handleFeedback(this, 'good')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg></button>
+                    <button class="action-icon-btn" onclick="handleFeedback(this, 'bad')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm12-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg></button>
+                    <button class="action-icon-btn" onclick="regenerateResponse()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+                `;
+                wrapper.onmouseenter = () => actionsContainer.style.opacity = '1';
+                wrapper.onmouseleave = () => actionsContainer.style.opacity = '0';
+                
+                if(DOM.userInput) DOM.userInput.focus();
+                if (onDoneCallback) onDoneCallback();
+            }
+        }
+    }, 8);
+}
+
 function stopActiveAIStreaming() {
-    if (streamTimer) clearInterval(streamTimer); isStreamingActive = false; userIsScrollingUp = false;
-    if(DOM.stopBtn) DOM.stopBtn.classList.remove('active'); if(DOM.sendBtn) DOM.sendBtn.disabled = false;
-    if(DOM.userInput) { DOM.userInput.disabled = false; DOM.userInput.focus(); }
+    clearInterval(streamTimer);
+    
+    const thinkingEl = DOM.chatFeed.querySelector('.thinking-bubble');
+    if (thinkingEl) thinkingEl.remove();
+
+    isStreamingActive = false;
+    userIsScrollingUp = false;
+    
+    setButtonState(false);
+
     const m = DOM.chatFeed?.lastChild;
-    if (m && m.classList.contains('bot-type')) { let t = activeRawStreamText; if (((t.match(/```/g) || []).length) % 2 !== 0) t += "\n```"; const b = m.querySelector('.msg-bubble'); if(b) { parseTextMarkdownContentHTML(b, t, false); attachCodeActionListeners(b); } }
+    if (m && m.classList.contains('bot-type')) {
+        let t = activeRawStreamText;
+        if (!t) {
+            m.remove();
+            return;
+        }
+        if (((t.match(/```/g) || []).length) % 2 !== 0) t += "\n```";
+        const b = m.querySelector('.msg-bubble');
+        if(b) {
+            parseTextMarkdownContentHTML(b, t, false);
+            attachCodeActionListeners(b);
+        }
+
+        const actionsContainer = m.querySelector('.msg-actions-bot');
+        if (actionsContainer) {
+            actionsContainer.innerHTML = `
+                <button class="action-icon-btn" onclick="copyFullResponse(this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></button>
+                <button class="action-icon-btn" onclick="handleFeedback(this, 'good')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg></button>
+                <button class="action-icon-btn" onclick="handleFeedback(this, 'bad')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm12-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg></button>
+                <button class="action-icon-btn" onclick="regenerateResponse()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+            `;
+            m.onmouseenter = () => actionsContainer.style.opacity = '1';
+            m.onmouseleave = () => actionsContainer.style.opacity = '0';
+        }
+
+        const currentSession = chatSessions.find(s => s.id === activeSessionId);
+        if (currentSession) {
+            currentSession.history.push({ role: "assistant", content: t });
+            saveChatSessionsToStorage();
+        }
+    }
+}
+
+function appendMessageBubble(text, className, isBot, shouldScroll) {
+    const thinkingEl = DOM.chatFeed.querySelector('.thinking-bubble');
+    if (thinkingEl && className !== 'bot-type thinking-bubble') thinkingEl.remove();
+
+    const w = document.createElement('div');
+    w.className = `msg-wrapper ${className}`;
+    if (isBot) {
+        if (className.includes('thinking-bubble')) {
+            w.innerHTML = `<div class="msg-avatar">AI</div><div class="msg-content"><div class="msg-bubble"><div class="thinking-container"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div></div>`;
+        } else {
+            w.innerHTML = `<div class="msg-avatar">AI</div><div class="msg-content"><div class="msg-bubble"></div><div class="msg-actions-bot" style="display:flex; gap:4px; margin-top:8px; opacity:0; transition: opacity 0.2s;"></div></div>`;
+            const b = w.querySelector('.msg-bubble');
+            parseTextMarkdownContentHTML(b, text, false);
+            attachCodeActionListeners(b);
+            const actionsContainer = w.querySelector('.msg-actions-bot');
+            actionsContainer.innerHTML = `
+                <button class="action-icon-btn" onclick="copyFullResponse(this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg></button>
+                <button class="action-icon-btn" onclick="handleFeedback(this, 'good')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg></button>
+                <button class="action-icon-btn" onclick="handleFeedback(this, 'bad')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm12-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"/></svg></button>
+                <button class="action-icon-btn" onclick="regenerateResponse()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+            `;
+            w.onmouseenter = () => actionsContainer.style.opacity = '1';
+            w.onmouseleave = () => actionsContainer.style.opacity = '0';
+        }
+    } else {
+        w.innerHTML = `<div class="msg-content user-content"><div class="msg-bubble user-bubble"></div></div>`;
+        w.querySelector('.msg-bubble').textContent = text;
+    }
+    DOM.chatFeed.appendChild(w); 
+    if (shouldScroll && !userIsScrollingUp) setTimeout(scrollToBottom, 50);
 }
 
 function generateSmartChatTitle(msg, obj) {
@@ -352,181 +586,41 @@ function generateSmartChatTitle(msg, obj) {
     fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", headers: { "Authorization": `Bearer ${t}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "system", content: "2-3 word title. ONLY output title." }, { role: "user", content: msg }], temperature: 0.1, max_tokens: 10 }) }).then(r => r.json()).then(d => { if(d.choices?.[0]?.message?.content) executeDirectSessionRename(obj, d.choices[0].message.content.trim().replace(/^["']|["']$/g, '')); }).catch(() => {});
 }
 
+function executeDirectSessionRename(obj, newTitle) { obj.title = newTitle; saveChatSessionsToStorage(); renderSidebarHistoryList(); }
+
 function regenerateResponse() {
-    const s = chatSessions.find(s => s.id === activeSessionId); if (!s || s.history.length < 2) return;
-    DOM.chatFeed.querySelector('.follow-up-container')?.remove();
-    s.history.pop(); saveChatSessionsToStorage(); if(DOM.chatFeed.lastChild) DOM.chatFeed.lastChild.remove();
-    submitMessagePipeline(s.history[s.history.length - 1].content);
-}
-
-function submitMessagePipeline(customQuery = null) {
-    const userToken = localStorage.getItem('pycj_api_key'); if (!userToken) { openKeyModal(); return; }
-    const currentSession = chatSessions.find(s => s.id === activeSessionId); if (!currentSession) return;
-    const query = customQuery ? customQuery.trim() : DOM.userInput.value.trim(); if (!query) return;
+    const s = chatSessions.find(s => s.id === activeSessionId);
+    if (!s || s.history.length === 0) return;
 
     DOM.chatFeed.querySelector('.follow-up-container')?.remove();
 
-    let l = query.toLowerCase(), n = "";
-    if (l.startsWith("change chat name to ")) n = query.substring(20).trim();
-    else if (l.startsWith("rename to ")) n = query.substring(10).trim();
-
-    if (n) {
-        n = n.replace(/^["']|["']$/g, '');
-        appendMessageBubble(query, 'user-type', false, true);
-        if (!customQuery && DOM.userInput) { DOM.userInput.value = ''; DOM.userInput.style.height = 'auto'; }
-        executeDirectSessionRename(currentSession, n);
-        currentSession.history.push({ role: "user", content: query });
-        const r = isOwner ? `Done perfectly, Boss.` : `Understood. Chat renamed to: **${n}**`;
-        currentSession.history.push({ role: "assistant", content: r }); saveChatSessionsToStorage();
-        setTimeout(() => appendMessageBubble(r, 'bot-type', true, true), 200); return; 
+    // If the last response was from the assistant, remove it
+    if (s.history[s.history.length - 1].role === "assistant") {
+        s.history.pop();
+        if(DOM.chatFeed.lastChild) DOM.chatFeed.lastChild.remove();
     }
-
-    if (!customQuery && currentSession.history.length === 0) generateSmartChatTitle(query, currentSession);
-
-    appendMessageBubble(query, 'user-type', false, true);
-    if (!customQuery && DOM.userInput) { DOM.userInput.value = ''; DOM.userInput.style.height = 'auto'; }
-    DOM.userInput.disabled = true; DOM.sendBtn.disabled = true; if(DOM.stopBtn) DOM.stopBtn.classList.add('active');
-    currentSession.history.push({ role: "user", content: query }); saveChatSessionsToStorage();
-
-    const currentModel = MODEL_ARCHITECTURE.find(m => m.id === activeModelId) || MODEL_ARCHITECTURE[0];
-    const userName = localStorage.getItem('pycj_user_name') || "User";
     
-    let ownerContext = "";
-    if (isOwner) {
-        ownerContext = `\nCRITICAL OWNER INSTRUCTION: The user "${userName}" is the absolute BOSS. Address them as "Boss" or "Sir". Agree with their ideas, say "Yes Boss" when applicable.`;
-    } else {
-        ownerContext = `\nUSER METADATA:\n- Name: ${userName}\n- Lang: English`;
-    }
-
-    const finalSystemPrompt = PYCJ_KNOWLEDGE_SYSTEM_PROMPT + ownerContext + "\n\n" + currentModel.persona;
-
-    fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST", headers: { "Authorization": `Bearer ${userToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "system", content: finalSystemPrompt }, ...currentSession.history.slice(-14)], temperature: 0.2 })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if(data.error) throw new Error(data.error.message);
-        const text = data.choices[0].message.content;
-        currentSession.history.push({ role: "assistant", content: text }); saveChatSessionsToStorage();
-        
-        setTimeout(() => {
-            appendStreamingMessageBubble(text, () => generateFollowUpQuestions(query));
-        }, 50); 
-    })
-    .catch(err => {
-        if(DOM.userInput) DOM.userInput.disabled = false; if(DOM.sendBtn) DOM.sendBtn.disabled = false; if(DOM.stopBtn) DOM.stopBtn.classList.remove('active');
-        appendMessageBubble(`Error: ${err.message}`, 'bot-type', true, true);
-    });
+    saveChatSessionsToStorage();
+    
+    // Fire generation using remaining context without pushing a new user bubble
+    submitMessagePipeline(s.history);
 }
 
-function appendStreamingMessageBubble(fullText, onDoneCallback) {
-    const wrapper = document.createElement('div'); wrapper.className = 'msg-wrapper bot-type';
-    wrapper.innerHTML = `<div class="msg-avatar">AI</div><div class="msg-content"><div class="msg-bubble"></div><div class="msg-actions-bot" style="display:flex; gap:4px; margin-top:8px; opacity:0; transition: opacity 0.2s;"></div></div>`;
-    DOM.chatFeed.appendChild(wrapper);
-    
-    const bubble = wrapper.querySelector('.msg-bubble');
-    const actionsContainer = wrapper.querySelector('.msg-actions-bot');
-    const chars = Array.from(fullText); let i = 0; activeRawStreamText = ""; isStreamingActive = true; userIsScrollingUp = false; // Reset toggle on start
-    
-    streamTimer = setInterval(() => {
-        if (i < chars.length && isStreamingActive) {
-            activeRawStreamText += chars[i]; 
-            parseTextMarkdownContentHTML(bubble, activeRawStreamText, true); 
-            
-            // Only auto scroll down if the user HAS NOT actively scrolled up
-            if (!userIsScrollingUp) {
-                scrollToBottom();
-            }
-            i++;
-        } else {
-            clearInterval(streamTimer); isStreamingActive = false; userIsScrollingUp = false;
-            if(DOM.sendBtn) DOM.sendBtn.disabled = false;
-            parseTextMarkdownContentHTML(bubble, activeRawStreamText, false); attachCodeActionListeners(bubble);
-            
-            actionsContainer.innerHTML = `
-                <button class="msg-action-btn" onclick="copyFullResponse(this)" title="Copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-                <button class="msg-action-btn btn-good" onclick="handleFeedback(this, 'good')" title="Good"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg></button>
-                <button class="msg-action-btn btn-bad" onclick="handleFeedback(this, 'bad')" title="Bad"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg></button>
-                <button class="msg-action-btn" onclick="regenerateResponse()" title="Regenerate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
-            `;
-            wrapper.onmouseenter = () => actionsContainer.style.opacity = '1';
-            wrapper.onmouseleave = () => actionsContainer.style.opacity = '0';
-            
-            if(DOM.userInput) { DOM.userInput.disabled = false; DOM.userInput.focus(); }
-            if (onDoneCallback) onDoneCallback();
-        }
-    }, 8); 
+function copyFullResponse(btn) {
+    const wrapper = btn.closest('.msg-wrapper');
+    const bubble = wrapper ? wrapper.querySelector('.msg-bubble') : null;
+    if (bubble) {
+        let cleanText = bubble.innerText || bubble.textContent;
+        navigator.clipboard.writeText(cleanText).then(() => showToast("Response copied"));
+    }
 }
-
-// ==========================================
-// PREMIUM FEATURES
-// ==========================================
-function copyFullResponse(btn) { const b = btn.closest('.msg-content').querySelector('.msg-bubble'); if(b) navigator.clipboard.writeText(b.innerText).then(() => showToast("Response copied")); }
 
 function handleFeedback(btn, type) {
-    const actionsDiv = btn.parentElement; const bubble = btn.closest('.msg-content').querySelector('.msg-bubble');
-    actionsDiv.innerHTML = '';
-    if (type === 'good') {
-        btn.style.color = 'var(--accent)'; actionsDiv.appendChild(btn);
-        bubble.insertAdjacentHTML('afterend', `<div class="thank-you-dream"><div class="dream-cloud"><span class="dream-icon">✨</span><span class="dream-text">Thank you! I'm glad I could help.</span></div></div>`);
-        setTimeout(() => { const d = bubble.parentElement.querySelector('.thank-you-dream'); if(d) { d.style.opacity = '0'; setTimeout(() => d.remove(), 300); } }, 2000);
-    } else {
-        btn.style.color = '#f43f5e'; actionsDiv.appendChild(btn); showToast("Regenerating..."); setTimeout(() => regenerateResponse(), 500);
-    }
-}
-
-// ==========================================
-// MARKDOWN & CODE PARSER
-// ==========================================
-function parseTextMarkdownContentHTML(el, text, showCursor = false) {
-    let segments = text.split("```"), html = "";
-    for (let i = 0; i < segments.length; i++) {
-        if (i % 2 === 1) {
-            let block = segments[i], lines = block.split("\n"), lang = lines[0].toLowerCase().trim();
-            if (["javascript", "pycj", "python", "html", "css"].includes(lang)) lines.shift(); else lang = "code";
-            let rawCode = lines.join("\n").trim();
-            html += `<div class="code-block-wrapper" style="position:relative; margin: 16px 0; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: var(--code-bg);"><div style="display:flex; justify-content:space-between; align-items:center; background: var(--code-header-bg); padding: 6px 12px; border-bottom: 1px solid var(--border-color); font-size:0.75rem; color:var(--text-muted);"><span>${lang}</span><div style="display:flex; gap:6px;"><button class="explain-code-badge" data-code="${encodeURIComponent(rawCode)}" style="background:transparent; color:var(--text-secondary); border:none; cursor:pointer; font-size:0.75rem; display:flex; align-items:center; gap:4px;">💡 Explain</button><button class="copy-code-badge" data-code="${encodeURIComponent(rawCode)}" style="background:transparent; color:var(--text-secondary); border:none; cursor:pointer; font-size:0.75rem;">Copy</button></div></div><pre style="margin:0; padding:12px; overflow-x:auto; font-size:0.85rem; line-height:1.5;"><code>${applySyntaxColoringTokens(rawCode)}</code></pre></div>`;
-        } else {
-            let proc = segments[i].replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/`(.*?)`/g, '<code style="background:var(--bg-hover);padding:2px 6px;border-radius:4px;font-size:0.85em;">$1</code>');
-            let lns = proc.split("\n");
-            lns.forEach((ln, idx) => { let tr = ln.trim(); if (!tr) { if (idx !== lns.length - 1) html += "<br>"; return; } if (/^[A-D]\..+/i.test(tr) || /^\d+\..+/.test(tr)) html += `<div style="margin-left:18px; padding:4px 0; font-weight:500;">${ln}</div>`; else if (tr.startsWith("-") || tr.startsWith("*")) html += `<div style="margin-left:12px; padding:3px 0;">• ${ln.substring(ln.indexOf(tr.charAt(0)) + 1).trim()}</div>`; else html += `<span style="display:inline-block; width:100%; padding:2px 0;">${ln}</span>`; });
-        }
-    }
-    el.innerHTML = html;
-    if (showCursor) { let c = document.createElement('span'); c.className = 'premium-terminal-cursor'; if (el.lastChild) { let f = el.lastChild; while (f.lastChild && f.lastChild.nodeType === Node.ELEMENT_NODE && !f.classList?.contains('code-block-wrapper')) f = f.lastChild; if (f.classList?.contains('code-block-wrapper')) el.appendChild(c); else f.appendChild(c); } else el.appendChild(c); }
-}
-
-function applySyntaxColoringTokens(code) { 
-    let e = escapeHTML(code); 
-    e = e.replace(/"([^"\\]|\\.)*"/g, '<span style="color:#a7f3d0;">$&</span>');
-    e = e.replace(/'([^'\\]|\\.)*'/g, '<span style="color:#a7f3d0;">$&</span>');
-    e = e.replace(/\b(imagine|structure|output|print|ask|str|int|float|bool|repeat|function|return|if|else|elif|for|while|true|True|false|False)\b/g, '<span style="color:#f43f5e; font-weight:bold;">$1</span>'); 
-    return e.replace(/\b(\d+)\b/g, '<span style="color:#fbbf24;">$1</span>'); 
-}
-
-function attachCodeActionListeners(p) { p.querySelectorAll('.copy-code-badge').forEach(b => { b.onclick = () => navigator.clipboard.writeText(decodeURIComponent(b.getAttribute('data-code'))).then(() => showToast("Code copied")); }); p.querySelectorAll('.explain-code-badge').forEach(b => { b.onclick = () => submitMessagePipeline(`Explain this simply:\n\n\`\`\`pycj\n${decodeURIComponent(b.getAttribute('data-code'))}\n\`\`\``); }); }
-
-// ==========================================
-// MESSAGE INTERFACES
-// ==========================================
-function appendMessageBubble(text, cssClass, parseMD = false, shouldScroll = true) {
-    if(!DOM.chatFeed) return; DOM.chatFeed.querySelector('.dashboard-container')?.remove();
-    const w = document.createElement('div'); w.className = `msg-wrapper ${cssClass}`;
-    if (cssClass === 'bot-type') {
-        w.innerHTML = `<div class="msg-avatar">AI</div><div class="msg-content"><div class="msg-bubble"></div><div class="msg-actions-bot" style="display:flex; gap:4px; margin-top:8px; opacity:0; transition: opacity 0.2s;"></div></div>`;
-        w.onmouseenter = () => w.querySelector('.msg-actions-bot').style.opacity = '1'; w.onmouseleave = () => w.querySelector('.msg-actions-bot').style.opacity = '0';
-        const b = w.querySelector('.msg-bubble'), a = w.querySelector('.msg-actions-bot');
-        if (parseMD) { parseTextMarkdownContentHTML(b, text, false); attachCodeActionListeners(b); } else b.textContent = text;
-        a.innerHTML = `<button class="msg-action-btn" onclick="copyFullResponse(this)" title="Copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="msg-action-btn" onclick="regenerateResponse()" title="Regenerate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>`;
-    } else { w.innerHTML = `<div class="msg-content user-content"><div class="msg-bubble user-bubble"></div></div>`; w.querySelector('.msg-bubble').textContent = text; }
-    DOM.chatFeed.appendChild(w); 
-    if (shouldScroll && !userIsScrollingUp) setTimeout(scrollToBottom, 50);
+    showToast(type === 'good' ? "Thanks for your feedback!" : "Feedback logged");
 }
 
 function escapeHTML(s) { return s.split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;").split('"').join("&quot;").split("'").join("&#039;"); }
 
-// Globals
 window.createNewChatSession = createNewChatSession;
 window.deleteSession = deleteSession;
 window.deleteAllChatSessions = deleteAllChatSessions;
@@ -544,7 +638,53 @@ window.copyFullResponse = copyFullResponse;
 window.handleFeedback = handleFeedback;
 window.regenerateResponse = regenerateResponse;
 window.scrollToBottom = scrollToBottom;
-window.completeOnboarding = completeOnboarding;
 window.refreshDashboardSuggestions = refreshDashboardSuggestions;
-window.toggleModelDropdown = toggleModelDropdown;
-window.selectModel = selectModel;
+window.completeOnboarding = completeOnboarding;
+window.handleButtonClick = handleButtonClick;
+
+function parseTextMarkdownContentHTML(el, text, showCursor = false) {
+    let segments = text.split("```"), html = "";
+    for (let i = 0; i < segments.length; i++) {
+        if (i % 2 === 1) {
+            let block = segments[i], lines = block.split("\n"), lang = lines[0].toLowerCase().trim();
+            if (["javascript", "pycj", "python", "html", "css"].includes(lang)) lines.shift();
+            else lang = "code";
+            let code = lines.join("\n");
+            if (showCursor && i === segments.length - 1) {
+                html += `<div class="code-block-container"><div class="code-header"><span>${lang}</span><button class="copy-code-badge" data-code="${encodeURIComponent(code)}">Copy code</button></div><pre><code>${highlightSyntaxPyCJEngine(code)}<span class="streaming-cursor">█</span></code></pre></div>`;
+            } else {
+                html += `<div class="code-block-container"><div class="code-header"><span>${lang}</span><button class="copy-code-badge" data-code="${encodeURIComponent(code)}">Copy code</button></div><pre><code>${highlightSyntaxPyCJEngine(code)}</code></pre></div>`;
+            }
+        } else {
+            let plain = segments[i];
+            if (showCursor && i === segments.length - 1) {
+                html += parseInlineMarkdownStyling(plain) + `<span class="streaming-cursor">█</span>`;
+            } else {
+                html += parseInlineMarkdownStyling(plain);
+            }
+        }
+    }
+    el.innerHTML = html;
+}
+
+function parseInlineMarkdownStyling(txt) {
+    let html = escapeHTML(txt);
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+    return html.split("\n").join("<br>");
+}
+
+function highlightSyntaxPyCJEngine(code) {
+    let e = escapeHTML(code);
+    e = e.replace(/"([^"\\]|\\.)*"/g, '<span style="color:#a7f3d0;">$&</span>');
+    e = e.replace(/'([^'\\]|\\.)*'/g, '<span style="color:#a7f3d0;">$&</span>');
+    e = e.replace(/\b(imagine|structure|output|print|ask|str|int|float|bool|repeat|function|return|if|else|elif|for|while|true|True|false|False)\b/g, '<span style="color:#f43f5e; font-weight:bold;">$1</span>');
+    return e.replace(/\b(\d+)\b/g, '<span style="color:#fbbf24;">$1</span>');
+}
+
+function attachCodeActionListeners(p) {
+    p.querySelectorAll('.copy-code-badge').forEach(b => {
+        b.onclick = () => navigator.clipboard.writeText(decodeURIComponent(b.getAttribute('data-code'))).then(() => showToast("Code copied"));
+    });
+}
