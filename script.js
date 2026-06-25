@@ -65,6 +65,7 @@ let isStreamingActive = false;
 let streamTimer = null;
 let activeRawStreamText = "";
 let isOwner = false;
+let userIsScrollingUp = false; // Tracks if user deliberately scrolled up
 let DOM = {};
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -189,13 +190,30 @@ function toggleSidebar() { document.getElementById('sidebar').classList.toggle('
 function setupScrollListener() {
     if(!DOM.chatWorkspace || !DOM.scrollFab) return;
     DOM.chatWorkspace.addEventListener('scroll', () => {
-        const near = DOM.chatWorkspace.scrollHeight - DOM.chatWorkspace.scrollTop - DOM.chatWorkspace.clientHeight < 100;
-        if (near) DOM.scrollFab.classList.remove('visible');
-        else if (isStreamingActive || DOM.chatWorkspace.querySelectorAll('.msg-wrapper').length > 2) DOM.scrollFab.classList.add('visible');
+        // Detect if user is near the bottom (with 40px threshold cushion)
+        const nearBottom = DOM.chatWorkspace.scrollHeight - DOM.chatWorkspace.scrollTop - DOM.chatWorkspace.clientHeight < 40;
+        
+        if (nearBottom) {
+            DOM.scrollFab.classList.remove('visible');
+            userIsScrollingUp = false; // Reset toggle if they manually snapped back to the bottom
+        } else {
+            if (isStreamingActive || DOM.chatWorkspace.querySelectorAll('.msg-wrapper').length > 2) {
+                DOM.scrollFab.classList.add('visible');
+            }
+            // If AI is typing and distance to bottom increases, user is trying to scroll up
+            if (isStreamingActive) {
+                userIsScrollingUp = true;
+            }
+        }
     });
 }
 
-function scrollToBottom() { if(DOM.chatWorkspace) DOM.chatWorkspace.scrollTo({ top: DOM.chatWorkspace.scrollHeight, behavior: 'smooth' }); }
+function scrollToBottom() { 
+    if(DOM.chatWorkspace) {
+        DOM.chatWorkspace.scrollTo({ top: DOM.chatWorkspace.scrollHeight, behavior: 'smooth' }); 
+    } 
+}
+
 function showToast(msg) { if(!DOM.toast) return; DOM.toast.textContent = msg; DOM.toast.classList.add('show'); setTimeout(() => DOM.toast.classList.remove('show'), 2000); }
 function getTimeGreeting() { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; }
 
@@ -319,10 +337,10 @@ function handleInputKeyPress(e) { if (e.key === 'Enter' && !e.shiftKey) { e.prev
 function executeSuggestionPill(t) { if(DOM.userInput) { DOM.userInput.value = t; submitMessagePipeline(); } }
 
 // ==========================================
-// AI PIPELINE (NO THINKING LOADER FOR INSTANT MODELS)
+// AI PIPELINE
 // ==========================================
 function stopActiveAIStreaming() {
-    if (streamTimer) clearInterval(streamTimer); isStreamingActive = false;
+    if (streamTimer) clearInterval(streamTimer); isStreamingActive = false; userIsScrollingUp = false;
     if(DOM.stopBtn) DOM.stopBtn.classList.remove('active'); if(DOM.sendBtn) DOM.sendBtn.disabled = false;
     if(DOM.userInput) { DOM.userInput.disabled = false; DOM.userInput.focus(); }
     const m = DOM.chatFeed?.lastChild;
@@ -392,7 +410,6 @@ function submitMessagePipeline(customQuery = null) {
         const text = data.choices[0].message.content;
         currentSession.history.push({ role: "assistant", content: text }); saveChatSessionsToStorage();
         
-        // Instant typing effect, NO loader
         setTimeout(() => {
             appendStreamingMessageBubble(text, () => generateFollowUpQuestions(query));
         }, 50); 
@@ -410,13 +427,20 @@ function appendStreamingMessageBubble(fullText, onDoneCallback) {
     
     const bubble = wrapper.querySelector('.msg-bubble');
     const actionsContainer = wrapper.querySelector('.msg-actions-bot');
-    const chars = Array.from(fullText); let i = 0; activeRawStreamText = ""; isStreamingActive = true;
+    const chars = Array.from(fullText); let i = 0; activeRawStreamText = ""; isStreamingActive = true; userIsScrollingUp = false; // Reset toggle on start
     
     streamTimer = setInterval(() => {
         if (i < chars.length && isStreamingActive) {
-            activeRawStreamText += chars[i]; parseTextMarkdownContentHTML(bubble, activeRawStreamText, true); scrollToBottom(); i++;
+            activeRawStreamText += chars[i]; 
+            parseTextMarkdownContentHTML(bubble, activeRawStreamText, true); 
+            
+            // Only auto scroll down if the user HAS NOT actively scrolled up
+            if (!userIsScrollingUp) {
+                scrollToBottom();
+            }
+            i++;
         } else {
-            clearInterval(streamTimer); isStreamingActive = false;
+            clearInterval(streamTimer); isStreamingActive = false; userIsScrollingUp = false;
             if(DOM.sendBtn) DOM.sendBtn.disabled = false;
             parseTextMarkdownContentHTML(bubble, activeRawStreamText, false); attachCodeActionListeners(bubble);
             
@@ -473,10 +497,19 @@ function parseTextMarkdownContentHTML(el, text, showCursor = false) {
     if (showCursor) { let c = document.createElement('span'); c.className = 'premium-terminal-cursor'; if (el.lastChild) { let f = el.lastChild; while (f.lastChild && f.lastChild.nodeType === Node.ELEMENT_NODE && !f.classList?.contains('code-block-wrapper')) f = f.lastChild; if (f.classList?.contains('code-block-wrapper')) el.appendChild(c); else f.appendChild(c); } else el.appendChild(c); }
 }
 
-function applySyntaxColoringTokens(code) { let e = escapeHTML(code); e = e.replace(/(["'])(.*?)\1/g, '<span style="color:#a7f3d0;">$1$2$1</span>'); e = e.replace(/\b(imagine|structure|output|print|ask|str|int|float|bool|repeat|function|return|if|else|elif|for|while|true|True|false|False)\b/g, '<span style="color:#f43f5e; font-weight:bold;">$1</span>'); return e.replace(/\b(\d+)\b/g, '<span style="color:#fbbf24;">$1</span>'); }
+function applySyntaxColoringTokens(code) { 
+    let e = escapeHTML(code); 
+    e = e.replace(/"([^"\\]|\\.)*"/g, '<span style="color:#a7f3d0;">$&</span>');
+    e = e.replace(/'([^'\\]|\\.)*'/g, '<span style="color:#a7f3d0;">$&</span>');
+    e = e.replace(/\b(imagine|structure|output|print|ask|str|int|float|bool|repeat|function|return|if|else|elif|for|while|true|True|false|False)\b/g, '<span style="color:#f43f5e; font-weight:bold;">$1</span>'); 
+    return e.replace(/\b(\d+)\b/g, '<span style="color:#fbbf24;">$1</span>'); 
+}
 
 function attachCodeActionListeners(p) { p.querySelectorAll('.copy-code-badge').forEach(b => { b.onclick = () => navigator.clipboard.writeText(decodeURIComponent(b.getAttribute('data-code'))).then(() => showToast("Code copied")); }); p.querySelectorAll('.explain-code-badge').forEach(b => { b.onclick = () => submitMessagePipeline(`Explain this simply:\n\n\`\`\`pycj\n${decodeURIComponent(b.getAttribute('data-code'))}\n\`\`\``); }); }
 
+// ==========================================
+// MESSAGE INTERFACES
+// ==========================================
 function appendMessageBubble(text, cssClass, parseMD = false, shouldScroll = true) {
     if(!DOM.chatFeed) return; DOM.chatFeed.querySelector('.dashboard-container')?.remove();
     const w = document.createElement('div'); w.className = `msg-wrapper ${cssClass}`;
@@ -487,7 +520,8 @@ function appendMessageBubble(text, cssClass, parseMD = false, shouldScroll = tru
         if (parseMD) { parseTextMarkdownContentHTML(b, text, false); attachCodeActionListeners(b); } else b.textContent = text;
         a.innerHTML = `<button class="msg-action-btn" onclick="copyFullResponse(this)" title="Copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button><button class="msg-action-btn" onclick="regenerateResponse()" title="Regenerate"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>`;
     } else { w.innerHTML = `<div class="msg-content user-content"><div class="msg-bubble user-bubble"></div></div>`; w.querySelector('.msg-bubble').textContent = text; }
-    DOM.chatFeed.appendChild(w); if (shouldScroll) setTimeout(scrollToBottom, 50);
+    DOM.chatFeed.appendChild(w); 
+    if (shouldScroll && !userIsScrollingUp) setTimeout(scrollToBottom, 50);
 }
 
 function escapeHTML(s) { return s.split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;").split('"').join("&quot;").split("'").join("&#039;"); }
